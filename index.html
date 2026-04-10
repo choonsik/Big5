@@ -36,7 +36,8 @@
     }
 
     /* ───── 공통 유틸 ───── */
-    .screen { display: none; }
+    .screen { display: block; }
+    .screen[hidden] { display: none !important; }
     .screen.active { display: block; }
     .fade-in { animation: fadeUp 0.45s ease both; }
     @keyframes fadeUp {
@@ -133,6 +134,14 @@
       transition: transform .25s, box-shadow .25s;
     }
     .btn-start:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,.28); }
+
+    .btn-start:focus-visible,
+    .btn-nav:focus-visible,
+    .btn-retry:focus-visible,
+    .btn-export:focus-visible {
+      outline: 3px solid rgba(255,255,255,.55);
+      outline-offset: 3px;
+    }
 
 
     /* ───── 질문 화면 ───── */
@@ -451,6 +460,10 @@
     .retry-area {
       text-align: center;
       padding: 2.5rem 0 4rem;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: .9rem;
     }
     .btn-retry {
       background: var(--primary);
@@ -466,6 +479,78 @@
       transition: transform .25s, box-shadow .25s;
     }
     .btn-retry:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(79,70,229,.4); }
+    .btn-export {
+      background: #fff;
+      border: 2px solid var(--border);
+      color: var(--text);
+      padding: .9rem 2rem;
+      border-radius: 99px;
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+    .btn-export:hover {
+      transform: translateY(-3px);
+      border-color: var(--primary);
+      box-shadow: 0 8px 22px rgba(17,24,39,.08);
+    }
+
+    .print-note {
+      margin-top: 1.2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      #screen-welcome,
+      #screen-question,
+      .retry-area,
+      .print-note {
+        display: none !important;
+      }
+
+      #screen-results {
+        display: block !important;
+        background: #fff;
+      }
+
+      .r-hero {
+        padding: 1.2rem 0 1rem;
+        background: #fff;
+        color: #111827;
+        border-bottom: 2px solid #E5E7EB;
+      }
+
+      .r-hero-chip {
+        color: #4F46E5;
+        background: #EEF2FF;
+        border-color: #C7D2FE;
+      }
+
+      .r-body {
+        max-width: none;
+        padding: 1.2rem 0 0;
+      }
+
+      .chart-section,
+      .sc-card,
+      .dim-card {
+        box-shadow: none;
+        border: 1px solid #E5E7EB;
+        break-inside: avoid;
+      }
+
+      .chart-canvas-wrap {
+        max-width: 320px;
+      }
+    }
 
     /* 반응형 */
     @media (max-width: 600px) {
@@ -502,11 +587,11 @@
     <div class="w-stat"><span class="val">5~8</span><span class="lbl">분 소요</span></div>
     <div class="w-stat"><span class="val">5</span><span class="lbl">가지 특성</span></div>
   </div>
-  <button class="btn-start" onclick="startTest()">검사 시작하기 →</button>
+  <button class="btn-start" id="btn-start" type="button">검사 시작하기 →</button>
 </section>
 
 <!-- ══════════════════ 질문 화면 ══════════════════ -->
-<section id="screen-question" class="screen">
+<section id="screen-question" class="screen" hidden>
   <header class="q-header">
     <div class="q-header-top">
       <span class="q-title-small">Big Five 성격 검사</span>
@@ -528,14 +613,14 @@
       <div class="likert-row" id="likert-row"></div>
     </div>
     <div class="q-nav">
-      <button class="btn-nav btn-prev" id="btn-prev" onclick="prevQ()">← 이전</button>
-      <button class="btn-nav btn-next" id="btn-next" onclick="nextQ()" disabled>다음 →</button>
+      <button class="btn-nav btn-prev" id="btn-prev" type="button">← 이전</button>
+      <button class="btn-nav btn-next" id="btn-next" type="button" disabled>다음 →</button>
     </div>
   </div>
 </section>
 
 <!-- ══════════════════ 결과 화면 ══════════════════ -->
-<section id="screen-results" class="screen">
+<section id="screen-results" class="screen" hidden>
   <div class="r-hero">
     <div class="r-hero-chip">✅ 검사 완료</div>
     <h1>나의 Big Five 성격 프로필</h1>
@@ -556,8 +641,10 @@
     <div class="dim-cards" id="dim-cards"></div>
 
     <div class="retry-area">
-      <button class="btn-retry" onclick="retryTest()">↺ 다시 검사하기</button>
+      <button class="btn-export" id="btn-export" type="button">PDF로 저장하기</button>
+      <button class="btn-retry" id="btn-retry" type="button">↺ 다시 검사하기</button>
     </div>
+    <div class="print-note">PDF 저장 버튼을 누르면 브라우저 인쇄 창이 열리고, 대상에서 PDF 저장을 선택할 수 있습니다.</div>
   </div>
 </section>
 
@@ -716,11 +803,22 @@
   let chart = null;
 
   const LIKERT_LABELS = ['전혀\n그렇지\n않다','그렇지\n않다','보통\n이다','그렇다','매우\n그렇다'];
+  const screenIds = ['screen-welcome', 'screen-question', 'screen-results'];
+
+  document.getElementById('btn-start').addEventListener('click', startTest);
+  document.getElementById('btn-prev').addEventListener('click', prevQ);
+  document.getElementById('btn-next').addEventListener('click', nextQ);
+  document.getElementById('btn-retry').addEventListener('click', retryTest);
+  document.getElementById('btn-export').addEventListener('click', exportPdf);
 
   /* ══════════════ 화면 전환 ══════════════ */
   function show(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    screenIds.forEach(screenId => {
+      const screen = document.getElementById(screenId);
+      const isActive = screenId === id;
+      screen.hidden = !isActive;
+      screen.classList.toggle('active', isActive);
+    });
     window.scrollTo({ top:0, behavior:'smooth' });
   }
 
@@ -842,7 +940,19 @@
     }).join('');
 
     // ── 레이더 차트
+    renderChart(scores);
+  }
+
+  function retryTest() {
+    cur = 0;
+    ans.fill(null);
+    show('screen-welcome');
+  }
+
+  function renderChart(scores) {
     if (chart) chart.destroy();
+    if (typeof Chart === 'undefined') return;
+
     const ctx = document.getElementById('radarChart').getContext('2d');
     chart = new Chart(ctx, {
       type: 'radar',
@@ -877,10 +987,9 @@
     });
   }
 
-  function retryTest() {
-    cur = 0;
-    ans.fill(null);
-    show('screen-welcome');
+  function exportPdf() {
+    show('screen-results');
+    window.print();
   }
 </script>
 </body>
