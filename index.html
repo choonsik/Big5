@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Big Five 성격 유형 검사</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --O: #7C3AED;
+      --C: #2563EB;
+      --E: #D97706;
+      --A: #059669;
+      --N: #DC2626;
+      --primary: #4F46E5;
+      --primary-dark: #3730A3;
+      --bg: #F5F7FF;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans KR', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ───── 공통 유틸 ───── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .fade-in { animation: fadeUp 0.45s ease both; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    /* ───── 시작 화면 ───── */
+    #screen-welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 3rem 1.5rem 4rem;
+      text-align: center;
+      background: linear-gradient(140deg, #4F46E5 0%, #7C3AED 55%, #9333EA 100%);
+      color: #fff;
+    }
+
+    .w-chip {
+      display: inline-block;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.35);
+      backdrop-filter: blur(8px);
+      padding: .35rem 1.1rem;
+      border-radius: 99px;
+      font-size: .82rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      margin-bottom: 1.6rem;
+    }
+
+    .w-title {
+      font-size: clamp(2.6rem, 7vw, 4.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1.25rem;
+      letter-spacing: -.02em;
+    }
+
+    .w-desc {
+      font-size: clamp(.95rem, 2.5vw, 1.15rem);
+      opacity: .88;
+      line-height: 1.8;
+      max-width: 560px;
+      margin-bottom: 2.5rem;
+    }
+
+    .w-traits {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: .6rem;
+      margin-bottom: 2.8rem;
+    }
+
+    .trait-pill {
+      padding: .42rem 1.1rem;
+      border-radius: 99px;
+      font-size: .8rem;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,.3);
+      background: rgba(255,255,255,.14);
+    }
+    .trait-pill.O { background: rgba(124,58,237,.45); }
+    .trait-pill.C { background: rgba(37,99,235,.45);  }
+    .trait-pill.E { background: rgba(217,119,6,.45);  }
+    .trait-pill.A { background: rgba(5,150,105,.45);  }
+    .trait-pill.N { background: rgba(220,38,38,.45);  }
+
+    .w-stats {
+      display: flex;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3rem;
+    }
+    .w-stat span { display: block; }
+    .w-stat .val { font-size: 2.2rem; font-weight: 800; }
+    .w-stat .lbl { font-size: .8rem; opacity: .75; margin-top: .1rem; }
+
+    .btn-start {
+      background: #fff;
+      color: var(--primary);
+      border: none;
+      padding: 1rem 3.2rem;
+      border-radius: 99px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(0,0,0,.22);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .btn-start:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,.28); }
+
+
+    /* ───── 질문 화면 ───── */
+    #screen-question { min-height: 100vh; background: var(--bg); }
+
+    .q-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: .9rem 1.5rem .9rem;
+    }
+
+    .q-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: .55rem;
+    }
+    .q-title-small { font-size: .82rem; font-weight: 600; color: var(--muted); }
+    .q-count { font-size: .88rem; font-weight: 700; color: var(--primary); }
+
+    .prog-track {
+      height: 7px;
+      background: #E5E7EB;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4F46E5, #7C3AED);
+      border-radius: 99px;
+      transition: width .45s ease;
+    }
+
+    .q-body {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2.8rem 1.5rem 4rem;
+    }
+
+    .q-dimension-badge {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 1.1rem;
+    }
+
+    .q-text {
+      font-size: clamp(1.1rem, 3.2vw, 1.35rem);
+      font-weight: 600;
+      line-height: 1.65;
+      margin-bottom: 2.8rem;
+      color: var(--text);
+    }
+
+    .likert-wrap { display: flex; flex-direction: column; gap: .4rem; }
+
+    .likert-axis {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 .25rem;
+      margin-bottom: .4rem;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    .likert-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: .5rem;
+    }
+
+    .l-opt input[type=radio] { display: none; }
+    .l-opt label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .35rem;
+      padding: .9rem .3rem;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      cursor: pointer;
+      transition: border-color .18s, background .18s, transform .18s;
+      user-select: none;
+    }
+    .l-opt label:hover { border-color: var(--primary); background: #EEF2FF; }
+    .l-opt input:checked + label {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(79,70,229,.35);
+    }
+    .l-num { font-size: 1.2rem; font-weight: 800; }
+    .l-label {
+      font-size: .65rem;
+      text-align: center;
+      line-height: 1.35;
+      white-space: pre-line;
+    }
+
+    .q-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2.5rem;
+    }
+
+    .btn-nav {
+      padding: .7rem 1.8rem;
+      border-radius: 99px;
+      font-size: .92rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-prev {
+      background: var(--card);
+      border: 2px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-prev:hover { border-color: #9CA3AF; }
+    .btn-next {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(79,70,229,.38);
+      margin-left: auto;
+    }
+    .btn-next:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-2px); }
+    .btn-next:disabled { background: #D1D5DB; box-shadow: none; cursor: not-allowed; }
+
+
+    /* ───── 결과 화면 ───── */
+    #screen-results { min-height: 100vh; background: var(--bg); }
+
+    .r-hero {
+      background: linear-gradient(140deg, #4F46E5 0%, #7C3AED 55%, #9333EA 100%);
+      color: #fff;
+      padding: 4rem 1.5rem 3.5rem;
+      text-align: center;
+    }
+    .r-hero-chip {
+      display: inline-block;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 99px;
+      padding: .32rem .9rem;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      margin-bottom: .9rem;
+    }
+    .r-hero h1 {
+      font-size: clamp(1.7rem, 5vw, 2.6rem);
+      font-weight: 800;
+      margin-bottom: .6rem;
+      letter-spacing: -.02em;
+    }
+    .r-hero p { font-size: .95rem; opacity: .82; }
+
+    .r-body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2.2rem 1.25rem 5rem;
+    }
+
+    .section-label {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 1.2rem;
+    }
+
+    /* 5-score mini cards */
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: .75rem;
+      margin-bottom: 2rem;
+    }
+    .sc-card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 1.2rem .8rem 1rem;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      border-top: 4px solid transparent;
+    }
+    .sc-card.O { border-color: var(--O); }
+    .sc-card.C { border-color: var(--C); }
+    .sc-card.E { border-color: var(--E); }
+    .sc-card.A { border-color: var(--A); }
+    .sc-card.N { border-color: var(--N); }
+    .sc-emoji { font-size: 1.6rem; margin-bottom: .4rem; }
+    .sc-dim { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: .2rem; }
+    .sc-val { font-size: 1.7rem; font-weight: 800; }
+    .sc-card.O .sc-val { color: var(--O); }
+    .sc-card.C .sc-val { color: var(--C); }
+    .sc-card.E .sc-val { color: var(--E); }
+    .sc-card.A .sc-val { color: var(--A); }
+    .sc-card.N .sc-val { color: var(--N); }
+    .sc-pct { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
+
+    /* 레이더 차트 섹션 */
+    .chart-section {
+      background: var(--card);
+      border-radius: 22px;
+      padding: 2rem 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .chart-canvas-wrap {
+      max-width: 380px;
+      margin: 0 auto;
+    }
+
+    /* 차원별 상세 카드 */
+    .dim-cards { display: flex; flex-direction: column; gap: 1.4rem; }
+
+    .dim-card {
+      background: var(--card);
+      border-radius: 22px;
+      padding: 1.8rem 1.6rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      border-left: 5px solid transparent;
+    }
+    .dim-card.O { border-color: var(--O); }
+    .dim-card.C { border-color: var(--C); }
+    .dim-card.E { border-color: var(--E); }
+    .dim-card.A { border-color: var(--A); }
+    .dim-card.N { border-color: var(--N); }
+
+    .dc-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: .9rem;
+    }
+    .dc-name { font-size: 1.05rem; font-weight: 800; margin-bottom: .2rem; }
+    .dc-eng  { font-size: .75rem; color: var(--muted); }
+    .dc-score {
+      font-size: 1.55rem;
+      font-weight: 800;
+      padding: .15rem .75rem;
+      border-radius: 99px;
+    }
+    .O .dc-score { color: var(--O); background: #F3EEFF; }
+    .C .dc-score { color: var(--C); background: #EFF6FF; }
+    .E .dc-score { color: var(--E); background: #FFFBEB; }
+    .A .dc-score { color: var(--A); background: #ECFDF5; }
+    .N .dc-score { color: var(--N); background: #FEF2F2; }
+
+    .dc-bar-track {
+      height: 9px;
+      background: #F3F4F6;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .dc-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1s ease;
+      width: 0;
+    }
+    .O .dc-bar-fill { background: var(--O); }
+    .C .dc-bar-fill { background: var(--C); }
+    .E .dc-bar-fill { background: var(--E); }
+    .A .dc-bar-fill { background: var(--A); }
+    .N .dc-bar-fill { background: var(--N); }
+
+    .dc-level {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .22rem .75rem;
+      border-radius: 99px;
+      margin-bottom: .85rem;
+    }
+    .O .dc-level { background: #F3EEFF; color: var(--O); }
+    .C .dc-level { background: #EFF6FF; color: var(--C); }
+    .E .dc-level { background: #FFFBEB; color: var(--E); }
+    .A .dc-level { background: #ECFDF5; color: var(--A); }
+    .N .dc-level { background: #FEF2F2; color: var(--N); }
+
+    .dc-desc {
+      font-size: .93rem;
+      line-height: 1.82;
+      color: #374151;
+      margin-bottom: 1rem;
+    }
+
+    .dc-keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .45rem;
+    }
+    .kw {
+      padding: .22rem .72rem;
+      background: #F3F4F6;
+      border-radius: 99px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    /* 하단 재시작 */
+    .retry-area {
+      text-align: center;
+      padding: 2.5rem 0 4rem;
+    }
+    .btn-retry {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      padding: .9rem 2.8rem;
+      border-radius: 99px;
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(79,70,229,.38);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .btn-retry:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(79,70,229,.4); }
+
+    /* 반응형 */
+    @media (max-width: 600px) {
+      .score-grid { grid-template-columns: repeat(2, 1fr); }
+      .likert-row  { gap: .35rem; }
+      .l-label { display: none; }
+      .l-opt label { padding: .8rem .15rem; }
+      .q-body { padding: 2rem 1rem 3rem; }
+    }
+    @media (max-width: 360px) {
+      .score-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ 시작 화면 ══════════════════ -->
+<section id="screen-welcome" class="screen active">
+  <div class="w-chip">🔬 과학적으로 검증된 성격 검사</div>
+  <h1 class="w-title">Big Five<br>성격 유형 검사</h1>
+  <p class="w-desc">
+    심리학에서 가장 신뢰도와 타당도가 높은 성격 모델인<br>
+    <strong>Big Five (OCEAN)</strong>를 통해 나의 성격 특성을 심층 분석해 보세요.
+  </p>
+  <div class="w-traits">
+    <span class="trait-pill O">🔮 개방성</span>
+    <span class="trait-pill C">🎯 성실성</span>
+    <span class="trait-pill E">⚡ 외향성</span>
+    <span class="trait-pill A">🤝 친화성</span>
+    <span class="trait-pill N">🌊 신경성</span>
+  </div>
+  <div class="w-stats">
+    <div class="w-stat"><span class="val">44</span><span class="lbl">개 문항</span></div>
+    <div class="w-stat"><span class="val">5~8</span><span class="lbl">분 소요</span></div>
+    <div class="w-stat"><span class="val">5</span><span class="lbl">가지 특성</span></div>
+  </div>
+  <button class="btn-start" onclick="startTest()">검사 시작하기 →</button>
+</section>
+
+<!-- ══════════════════ 질문 화면 ══════════════════ -->
+<section id="screen-question" class="screen">
+  <header class="q-header">
+    <div class="q-header-top">
+      <span class="q-title-small">Big Five 성격 검사</span>
+      <span class="q-count" id="q-count">1 / 44</span>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+  </header>
+
+  <div class="q-body" id="q-body">
+    <div class="q-dimension-badge" id="q-dim-badge"></div>
+    <div class="q-text" id="q-text"></div>
+    <div class="likert-wrap">
+      <div class="likert-axis">
+        <span>전혀 그렇지 않다</span>
+        <span>매우 그렇다</span>
+      </div>
+      <div class="likert-row" id="likert-row"></div>
+    </div>
+    <div class="q-nav">
+      <button class="btn-nav btn-prev" id="btn-prev" onclick="prevQ()">← 이전</button>
+      <button class="btn-nav btn-next" id="btn-next" onclick="nextQ()" disabled>다음 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 결과 화면 ══════════════════ -->
+<section id="screen-results" class="screen">
+  <div class="r-hero">
+    <div class="r-hero-chip">✅ 검사 완료</div>
+    <h1>나의 Big Five 성격 프로필</h1>
+    <p>44개 문항을 바탕으로 분석한 결과입니다</p>
+  </div>
+
+  <div class="r-body">
+    <div class="score-grid" id="score-grid"></div>
+
+    <div class="chart-section">
+      <div class="section-label">성격 프로필 레이더 차트</div>
+      <div class="chart-canvas-wrap">
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <div class="section-label">차원별 상세 분석</div>
+    <div class="dim-cards" id="dim-cards"></div>
+
+    <div class="retry-area">
+      <button class="btn-retry" onclick="retryTest()">↺ 다시 검사하기</button>
+    </div>
+  </div>
+</section>
+
+<script>
+  /* ══════════════ 데이터 ══════════════ */
+
+  // BFI-44 (John, Donahue & Kentle, 1991) 한국어 번안
+  const QUESTIONS = [
+    { dim:'E', rev:false, text:'나는 이야기하기를 좋아하는 편이다' },
+    { dim:'A', rev:true,  text:'다른 사람의 단점을 잘 찾아내는 편이다' },
+    { dim:'C', rev:false, text:'모든 일을 철저하게 하는 편이다' },
+    { dim:'N', rev:false, text:'우울하거나 기분이 가라앉는 경우가 많다' },
+    { dim:'O', rev:false, text:'새로운 생각을 잘 떠올리고 창의적인 편이다' },
+    { dim:'E', rev:true,  text:'내성적이고 조용한 편이다' },
+    { dim:'A', rev:false, text:'사람들에게 도움을 주고 헌신적이다' },
+    { dim:'C', rev:true,  text:'때로 일을 부주의하게 처리한다' },
+    { dim:'N', rev:true,  text:'정서적으로 안정적이어서 쉽게 흔들리지 않는다' },
+    { dim:'O', rev:false, text:'여러 분야에 관심이 많다' },
+    { dim:'E', rev:false, text:'활력이 넘치는 편이다' },
+    { dim:'A', rev:true,  text:'다른 사람과 잘 다투는 편이다' },
+    { dim:'C', rev:false, text:'믿을 수 있는 사람이다' },
+    { dim:'N', rev:false, text:'금방 긴장하거나 불안해하는 편이다' },
+    { dim:'O', rev:false, text:'총명하고 깊이 있게 생각한다' },
+    { dim:'E', rev:true,  text:'사람들에게 별로 관심이 없다' },
+    { dim:'A', rev:false, text:'용서를 잘 하고 관대하다' },
+    { dim:'C', rev:true,  text:'일을 할 때 체계가 없고 정신이 없는 편이다' },
+    { dim:'N', rev:false, text:'걱정이 많은 편이다' },
+    { dim:'O', rev:false, text:'상상력이 풍부하다' },
+    { dim:'E', rev:false, text:'조용히 있지 못하고 활발하게 움직이는 편이다' },
+    { dim:'A', rev:false, text:'사람들을 대체로 신뢰하는 편이다' },
+    { dim:'C', rev:true,  text:'일할 때 나태한 편이다' },
+    { dim:'N', rev:true,  text:'감정적으로 안정되어 있다' },
+    { dim:'O', rev:false, text:'다양한 분야에 흥미와 매력을 느낀다' },
+    { dim:'E', rev:false, text:'주도적으로 앞서서 리드하는 편이다' },
+    { dim:'A', rev:true,  text:'차갑고 냉담한 면이 있다' },
+    { dim:'C', rev:false, text:'계획을 끝까지 지키려고 한다' },
+    { dim:'N', rev:false, text:'감정 기복이 있어 변덕스럽다는 말을 듣는다' },
+    { dim:'O', rev:false, text:'예술적인 것들을 소중히 여긴다' },
+    { dim:'E', rev:true,  text:'수줍음이 많고 낯을 가리는 편이다' },
+    { dim:'A', rev:false, text:'모든 사람에게 배려를 잘 한다' },
+    { dim:'C', rev:false, text:'맡은 일을 효율적으로 처리한다' },
+    { dim:'N', rev:true,  text:'침착하고 힘든 상황에서도 잘 대처한다' },
+    { dim:'O', rev:true,  text:'예술적이거나 심미적인 것에 관심이 없다' },
+    { dim:'E', rev:false, text:'사람들과 어울리고 사귀는 것을 즐긴다' },
+    { dim:'A', rev:true,  text:'가끔 무례하게 행동하는 경우가 있다' },
+    { dim:'C', rev:false, text:'시간을 잘 계획해서 사용한다' },
+    { dim:'N', rev:false, text:'쉽게 신경질을 내는 편이다' },
+    { dim:'O', rev:false, text:'지적인 사색이나 추리, 퍼즐을 즐긴다' },
+    { dim:'O', rev:true,  text:'추상적인 개념이나 이론에 흥미를 갖지 못한다' },
+    { dim:'A', rev:false, text:'다른 사람과 협력하는 것을 좋아한다' },
+    { dim:'C', rev:true,  text:'쉽게 주의가 분산되거나 딴생각을 한다' },
+    { dim:'O', rev:false, text:'예술, 음악, 문학에 심취하는 편이다' },
+  ];
+
+  const DIM_INFO = {
+    O: { name:'개방성',  eng:'Openness',          emoji:'🔮', cls:'O' },
+    C: { name:'성실성',  eng:'Conscientiousness',  emoji:'🎯', cls:'C' },
+    E: { name:'외향성',  eng:'Extraversion',        emoji:'⚡', cls:'E' },
+    A: { name:'친화성',  eng:'Agreeableness',       emoji:'🤝', cls:'A' },
+    N: { name:'신경성',  eng:'Neuroticism',         emoji:'🌊', cls:'N' },
+  };
+
+  const DESCS = {
+    O: {
+      high: {
+        level:'높음',
+        text:'당신은 풍부한 상상력과 강한 지적 호기심을 지닌 개방적인 성격입니다. 새로운 아이디어, 예술, 문화, 철학 등 다양한 분야에서 깊은 관심을 가지며 창의적으로 사고합니다. 변화를 기꺼이 수용하고 다양한 관점을 탐구하는 것을 즐깁니다. 이러한 특성은 혁신적인 문제 해결과 창작 활동에서 큰 강점이 됩니다.',
+        kw:['창의적','지적 호기심','상상력 풍부','예술적 감각','독창적','새로움 추구'],
+      },
+      medium: {
+        level:'보통',
+        text:'새로운 경험과 익숙한 방식 사이에서 균형을 유지합니다. 흥미로운 분야에서는 깊은 호기심을 발휘하지만, 그렇지 않은 분야에서는 실용적인 접근을 선택합니다. 창의성과 현실감각을 상황에 따라 조율하는 유연함을 가지고 있습니다.',
+        kw:['균형적','선택적 호기심','현실적','유연한 적응'],
+      },
+      low: {
+        level:'낮음',
+        text:'검증된 방법과 안정적인 환경을 선호하는 실용적인 성향입니다. 추상적 이론보다 구체적이고 실질적인 것에 집중하며, 경험과 전통에서 신뢰를 찾습니다. 이러한 현실 중심적 사고는 안정적인 실행력과 판단력의 근거가 됩니다.',
+        kw:['실용적','전통 중시','현실적 사고','안정 추구','구체적'],
+      },
+    },
+    C: {
+      high: {
+        level:'높음',
+        text:'목표 지향적이고 체계적인 성격으로, 강한 자기 통제력과 책임감을 갖추고 있습니다. 계획을 꼼꼼히 세우고 끝까지 실행하며, 높은 완성도를 추구합니다. 연구에 따르면 성실성은 직업적 성과와 건강 행동을 가장 잘 예측하는 Big Five 요인 중 하나입니다.',
+        kw:['체계적','책임감 강함','꼼꼼함','자기규율','목표지향','계획적'],
+      },
+      medium: {
+        level:'보통',
+        text:'필요할 때 체계적으로 행동하면서도 지나치게 경직되지 않는 유연성을 갖추고 있습니다. 중요한 일에는 집중하고 끝까지 책임을 다하지만, 상황에 따라 즉흥적으로 적응하기도 합니다.',
+        kw:['균형적','선택적 집중','유연함','적응력'],
+      },
+      low: {
+        level:'낮음',
+        text:'자유롭고 유연한 방식을 선호합니다. 엄격한 일정보다 상황에 따라 즉흥적으로 흐르는 것을 즐기며, 이는 빠르게 변하는 환경에서 창의적 대처 능력으로 발휘될 수 있습니다. 자신만의 방식으로 일하는 환경이 더 잘 맞습니다.',
+        kw:['자유로움','즉흥적','유연함','비형식적'],
+      },
+    },
+    E: {
+      high: {
+        level:'높음',
+        text:'사람들과 어울리는 것에서 에너지를 얻는 활발한 외향적 성격입니다. 새로운 사람을 만나고 사교적 활동을 즐기며, 대화를 자연스럽게 주도합니다. 긍정적인 감정과 활력을 주변에 전파하며, 팀 환경이나 리더십 역할에서 빛을 발합니다.',
+        kw:['사교적','활발함','열정적','리더십','표현력','낙관적'],
+      },
+      medium: {
+        level:'보통',
+        text:'사교적인 면과 내성적인 면을 모두 갖춘 양향성(ambivert) 성격입니다. 사람들과 어울리는 것도 즐기지만 혼자만의 시간도 필요로 합니다. 상황에 따라 외향적·내향적 면을 유연하게 전환할 수 있는 것이 강점입니다.',
+        kw:['양향적','균형적','적응력','상황 파악력'],
+      },
+      low: {
+        level:'낮음',
+        text:'조용하고 신중한 내성적 성격입니다. 혼자이거나 소수의 친밀한 사람들과 함께할 때 에너지를 재충전합니다. 깊이 있는 대화와 내면의 사색을 즐기며, 이는 집중력과 깊이 있는 통찰로 이어집니다. 내향성은 약점이 아닌 고유한 강점입니다.',
+        kw:['내성적','신중함','독립적','사색적','집중력','깊이 있음'],
+      },
+    },
+    A: {
+      high: {
+        level:'높음',
+        text:'따뜻하고 협조적인 성격으로 뛰어난 공감 능력을 갖추고 있습니다. 다른 사람의 감정과 필요를 세심하게 헤아리며 화합을 중요시합니다. 갈등을 최소화하고 신뢰와 배려를 바탕으로 관계를 형성합니다. 팀워크와 돌봄이 필요한 환경에서 두드러진 능력을 발휘합니다.',
+        kw:['따뜻함','공감 능력','협조적','배려심','화합 추구','관대함'],
+      },
+      medium: {
+        level:'보통',
+        text:'협력과 자기주장 사이에서 적절한 균형을 유지합니다. 상황에 따라 타인에게 맞추기도 하고 자신의 의견을 분명히 표현하기도 합니다. 관계 유지와 개인 목표 추구 사이에서 유연하게 조율할 수 있습니다.',
+        kw:['균형적','상황 대응력','협력적','적절한 주장'],
+      },
+      low: {
+        level:'낮음',
+        text:'직선적이고 독립적인 성향으로 자신의 의견을 솔직하게 표현합니다. 타인의 시선보다 객관적 사실과 결과를 중시하며, 경쟁적인 환경에서도 자신의 목표를 잃지 않습니다. 비판적 시각과 솔직함은 협상·분석 역할에서 강점이 될 수 있습니다.',
+        kw:['직선적','독립적','경쟁적','솔직함','비판적 사고'],
+      },
+    },
+    N: {
+      high: {
+        level:'높음',
+        text:'감정에 민감하게 반응하는 성향으로, 불안·걱정·우울 같은 부정적 감정을 비교적 자주 경험할 수 있습니다. 이 민감성은 타인의 감정에 깊이 공감하고 예술적 감수성으로 이어지기도 합니다. 마음챙김 연습, 규칙적인 운동, 충분한 수면 등 스트레스 관리 전략이 일상에 큰 도움이 됩니다.',
+        kw:['높은 감수성','감정적 반응','섬세함','예민함','공감 능력'],
+      },
+      medium: {
+        level:'보통',
+        text:'감정적 반응은 있지만 대체로 잘 관리하는 수준입니다. 어려운 상황에서 일시적으로 불안하거나 우울할 수 있지만 비교적 빠르게 회복합니다. 자신의 감정 상태를 인식하고 조절하는 능력을 기르면 더욱 안정적인 심리 상태를 유지할 수 있습니다.',
+        kw:['균형적','감정 인식','회복력','적당한 민감성'],
+      },
+      low: {
+        level:'낮음',
+        text:'정서적으로 안정되어 있고 스트레스에 강한 성격입니다. 어려운 상황에서도 침착하게 대응하며 부정적인 감정에 쉽게 흔들리지 않습니다. 이러한 정서적 회복력은 고압적인 환경이나 위기 상황에서 특히 가치 있는 자산이 됩니다.',
+        kw:['정서적 안정','침착함','회복력','낙관적','냉정한 판단'],
+      },
+    },
+  };
+
+  const ORDER = ['O','C','E','A','N'];
+
+  /* ══════════════ 상태 ══════════════ */
+  let cur = 0;
+  const ans = new Array(44).fill(null);
+  let chart = null;
+
+  const LIKERT_LABELS = ['전혀\n그렇지\n않다','그렇지\n않다','보통\n이다','그렇다','매우\n그렇다'];
+
+  /* ══════════════ 화면 전환 ══════════════ */
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({ top:0, behavior:'smooth' });
+  }
+
+  /* ══════════════ 질문 렌더링 ══════════════ */
+  function renderQ() {
+    const q = QUESTIONS[cur];
+    const info = DIM_INFO[q.dim];
+
+    document.getElementById('q-count').textContent = `${cur+1} / 44`;
+    document.getElementById('prog-fill').style.width = `${(cur/44)*100}%`;
+    document.getElementById('q-dim-badge').textContent = `${info.emoji} ${info.name} · ${info.eng}`;
+    document.getElementById('q-text').textContent = `"${q.text}"`;
+
+    document.getElementById('btn-prev').style.visibility = cur === 0 ? 'hidden' : 'visible';
+    document.getElementById('btn-next').textContent = cur === 43 ? '결과 보기 →' : '다음 →';
+    document.getElementById('btn-next').disabled = ans[cur] === null;
+
+    const row = document.getElementById('likert-row');
+    row.innerHTML = '';
+    for (let v = 1; v <= 5; v++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'l-opt';
+      const id = `q${cur}_${v}`;
+      wrap.innerHTML = `
+        <input type="radio" name="q${cur}" id="${id}" value="${v}" ${ans[cur]===v?'checked':''}>
+        <label for="${id}">
+          <span class="l-num">${v}</span>
+          <span class="l-label">${LIKERT_LABELS[v-1]}</span>
+        </label>`;
+      wrap.querySelector('input').addEventListener('change', () => {
+        ans[cur] = v;
+        document.getElementById('btn-next').disabled = false;
+        setTimeout(() => {
+          if (cur < 43) { cur++; renderQ(); }
+          else showResults();
+        }, 420);
+      });
+      row.appendChild(wrap);
+    }
+
+    // 페이드 애니메이션
+    const body = document.getElementById('q-body');
+    body.classList.remove('fade-in');
+    void body.offsetWidth;
+    body.classList.add('fade-in');
+  }
+
+  function startTest() {
+    show('screen-question');
+    renderQ();
+  }
+
+  function prevQ() {
+    if (cur > 0) { cur--; renderQ(); }
+  }
+
+  function nextQ() {
+    if (ans[cur] === null) return;
+    if (cur < 43) { cur++; renderQ(); }
+    else showResults();
+  }
+
+  /* ══════════════ 점수 계산 ══════════════ */
+  function calcScores() {
+    const buckets = { O:[], C:[], E:[], A:[], N:[] };
+    QUESTIONS.forEach((q, i) => {
+      const raw = ans[i];
+      buckets[q.dim].push(q.rev ? 6 - raw : raw);
+    });
+    const scores = {};
+    for (const d in buckets) {
+      const arr = buckets[d];
+      scores[d] = arr.reduce((a,b)=>a+b,0) / arr.length;
+    }
+    return scores;
+  }
+
+  function level(s) { return s>=3.5?'high': s>=2.5?'medium':'low'; }
+
+  /* ══════════════ 결과 화면 렌더링 ══════════════ */
+  function showResults() {
+    const scores = calcScores();
+    show('screen-results');
+
+    // ── 미니 점수 카드
+    document.getElementById('score-grid').innerHTML = ORDER.map(d => {
+      const info = DIM_INFO[d];
+      const s = scores[d];
+      const pct = Math.round((s-1)/4*100);
+      return `<div class="sc-card ${d}">
+        <div class="sc-emoji">${info.emoji}</div>
+        <div class="sc-dim">${info.name}</div>
+        <div class="sc-val">${s.toFixed(1)}</div>
+        <div class="sc-pct">${pct}%</div>
+      </div>`;
+    }).join('');
+
+    // ── 차원별 상세 카드
+    document.getElementById('dim-cards').innerHTML = ORDER.map(d => {
+      const info = DIM_INFO[d];
+      const s = scores[d];
+      const pct = Math.round((s-1)/4*100);
+      const desc = DESCS[d][level(s)];
+      return `<div class="dim-card ${d}">
+        <div class="dc-top">
+          <div>
+            <div class="dc-name">${info.emoji} ${info.name}</div>
+            <div class="dc-eng">${info.eng}</div>
+          </div>
+          <div class="dc-score">${s.toFixed(2)}</div>
+        </div>
+        <div class="dc-bar-track">
+          <div class="dc-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="dc-level">${desc.level} (${pct}%)</span>
+        <p class="dc-desc">${desc.text}</p>
+        <div class="dc-keywords">${desc.kw.map(k=>`<span class="kw">${k}</span>`).join('')}</div>
+      </div>`;
+    }).join('');
+
+    // ── 레이더 차트
+    if (chart) chart.destroy();
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ORDER.map(d => DIM_INFO[d].name),
+        datasets: [{
+          label: '나의 점수',
+          data: ORDER.map(d => scores[d]),
+          backgroundColor: 'rgba(79,70,229,.12)',
+          borderColor: 'rgba(79,70,229,.8)',
+          borderWidth: 2.5,
+          pointBackgroundColor: ['#7C3AED','#2563EB','#D97706','#059669','#DC2626'],
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 7,
+          pointHoverRadius: 9,
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          r: {
+            min: 1, max: 5,
+            ticks: { stepSize:1, font:{size:10}, color:'#9CA3AF', backdropColor:'transparent' },
+            grid: { color:'rgba(0,0,0,.07)' },
+            angleLines: { color:'rgba(0,0,0,.07)' },
+            pointLabels: { font:{ size:13, weight:'700' }, color:'#374151' },
+          }
+        },
+        plugins: { legend: { display:false } },
+      }
+    });
+  }
+
+  function retryTest() {
+    cur = 0;
+    ans.fill(null);
+    show('screen-welcome');
+  }
+</script>
+</body>
+</html>
